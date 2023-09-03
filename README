@@ -1,0 +1,30 @@
+In headerul "struct.h" am declarate structuri pentru task/thread si pentru planificator.
+In headerul "list.h: am declarat structuri pentru lista de thread-uri 
+    -> threadurile le pun in lista descrescator dupa prioritate si crescator dupa ordinea in care au fost create daca prioritatile sunt egale
+Threadul poate sa execute instructiunile EXEC, WAIT, FORK, SIGNAL.
+Deci cand trec prin functiile are simuleaza aceste intructiuni (so_fork, so_wait, so_signal, so_exec):
+    -> scad cuanta threadului
+
+in functia so_init -> aloc si initializez planificatorul
+
+in functia so_end :
+    -> dezaloc memoria planificatorului
+    -> asteptam sa se termine toate thread-urile ramase cu "pthread_join()"
+
+in functia so_fork : (functia se apeleaza din contextul unui thread)
+    -> primul thread nu trebuie sa astepte sa fie planificat (prima oara cand se apeleaza so_fork)
+    -> daca nu suntem in cazul primului thread, se scade cuanta threadului care e in starea running
+    -> aloc memorie pentru structura de thread nou si o adaug in lista de thread-uri
+    -> se creeaza threadul cu pthread_create() care primeste functia "start_thread" ca parametru
+        -> "start_thread" simuleaza planificarea threadului
+        -> dupa ce se apeleaza handler(prioritate), threadul curent se termina si trebuie lasat altcineva pe procesor (din starea ready)
+    -> acest thread nou trebuie sa astepte sa fie planificat (sem_wait)
+    -> functia "schedule_thread" verifica daca threadul curent trebuie preemptat in cazurile in care :
+            -> i-a expirat cuanta
+            -> un task cu prioritate mai mare intra in sistem
+    -> daca threadul curent trebuie preemptat se apeleaza functia "context_switch" care:
+            -> pune threadul curent sa astepte si pe cel nou creat il trezeste cu sem_post()
+            -> pune threadul curent in starea ready si pe cel nou creat in starea running
+    -> daca threadul curent nu este preemptat, threadul nou este pun in starea ready
+    -> threadul nou creat asteapta pe semafor (sem_wait in start_thread) pana cand este planificat
+
